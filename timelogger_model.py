@@ -9,15 +9,16 @@ class Category:
         return f"Category({self.cat_id}, '{self.name}')"
     
 class LogEntry:
-    def __init__(self, *, cat_id, time_start, time_end = "", details = '', log_id=None):
+    def __init__(self, *, cat_id, time_start, time_end = "", details = '', log_id=None, billed=0):
         self.log_id = log_id
         self.cat_id = cat_id
         self.time_start = time_start
         self.time_end = time_end
         self.details = details
+        self.billed = billed
     
     def __repr__(self):
-        return f"LogEntry({self.log_id}, {self.cat_id}, {self.time_start}, {self.time_end}, '{self.details}')"
+        return f"LogEntry({self.log_id}, {self.cat_id}, {self.time_start}, {self.time_end}, '{self.details}', {self.billed})"
         
 class AppState:
     def __init__(self, cursor):
@@ -33,13 +34,13 @@ class AppState:
 class LogBook:
     add_cat_query = """INSERT INTO categories (CatName) VALUES
                                               ('{cat_name}');"""
-    add_log_query = """INSERT INTO entries (CatID, TimeStart, TimeEnd, Details) VALUES
-                                           ({log_cat_id}, '{log_time_start}', '{log_time_end}', '{log_details}');"""
+    add_log_query = """INSERT INTO entries (CatID, TimeStart, TimeEnd, Details, Billed) VALUES
+                                           ({log_cat_id}, '{log_time_start}', '{log_time_end}', '{log_details}', {log_billed});"""
     get_cat_query = "SELECT CatID, CatName FROM categories;"
     get_cat_name_by_id_query = "SELECT CatName FROM categories WHERE CatID = {cat_id};"
-    get_log_query = "SELECT EntryID, CatID, TimeStart, TimeEnd, Details FROM entries;"
-    get_log_by_cat_id_query = "SELECT EntryID, CatID, TimeStart, TimeEnd, Details FROM entries WHERE CatID = '{cat_id}';"
-    get_log_by_id_query = "SELECT EntryID, CatID, TimeStart, TimeEnd, Details FROM entries WHERE EntryID = {entry_id};"
+    get_log_query = "SELECT EntryID, CatID, TimeStart, TimeEnd, Details, Billed FROM entries;"
+    get_log_by_cat_id_query = "SELECT EntryID, CatID, TimeStart, TimeEnd, Details, Billed FROM entries WHERE CatID = '{cat_id}';"
+    get_log_by_id_query = "SELECT EntryID, CatID, TimeStart, TimeEnd, Details, Billed FROM entries WHERE EntryID = {entry_id};"
     
     get_cat_id_by_name_query = "SELECT CatID FROM categories WHERE CatName = '{name}'"
     
@@ -59,7 +60,8 @@ class LogBook:
                           SET CatID = {log_updated_cat_id},
                               TimeStart = '{log_updated_time_start}',
                               TimeEnd = '{log_updated_time_end}',
-                              Details = '{log_updated_details}'
+                              Details = '{log_updated_details}',
+                              Billed = {log_updated_billed}
                           WHERE EntryID = {log_id}"""
     update_log_end_by_start_query = """UPDATE entries
                           SET TimeEnd = '{log_updated_time_end}'
@@ -116,7 +118,7 @@ class LogBook:
     def add_log(self, log):
         """Adds a log to the database"""
         query = LogBook.add_log_query.format(log_cat_id=log.cat_id, log_time_start=log.time_start, \
-                                             log_time_end=log.time_end, log_details=log.details)
+                                             log_time_end=log.time_end, log_details=log.details, log_billed=log.billed)
         self.cursor.execute(query)
         self.connector.commit()
         
@@ -151,9 +153,9 @@ class LogBook:
         query = LogBook.get_log_by_cat_id_query.format(cat_id=cat_id) if cat_id else LogBook.get_log_by_query
         
         results = self.cursor.execute(query)
-        for entry_id, cat_id, time_start, time_end, details in results:
+        for entry_id, cat_id, time_start, time_end, details, billed in results:
             entries.append(LogEntry(cat_id=cat_id, time_start=time_start, \
-                                    time_end=time_end, details=details))
+                                    time_end=time_end, details=details, billed=billed))
         return entries
     
     def get_log_by_id(self, entry_id):
@@ -162,9 +164,9 @@ class LogBook:
         if len(results) <= 0:
             return None
         else:
-            entry_id, cat_id, time_start, time_end, details = results[0]
+            entry_id, cat_id, time_start, time_end, details, billed = results[0]
             
-            return LogEntry(log_id=entry_id, cat_id=cat_id, time_start=time_start, time_end=time_end, details=details)
+            return LogEntry(log_id=entry_id, cat_id=cat_id, time_start=time_start, time_end=time_end, details=details, billed=billed)
     
     def update_cat_by_id(self, cat_id, cat_updated):
         """Updates an existing category based on cat_id"""

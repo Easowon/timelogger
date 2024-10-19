@@ -5,6 +5,13 @@ from functools import partial
 import sqlite3
 from timelogger_model import *
 
+'''
+Start button does not disable after changing categories
+Make export error more specific
+Warn if exporting and there is a running task (dont export)
+'''
+
+
 import gettext
 _ = gettext.gettext
 
@@ -17,6 +24,7 @@ class TimeLogger ( wx.Frame ):
     def __init__( self, parent ):
         
         self.logs = LogBook("TimeLogger.db")
+        #self.logs.purge_db()
         
         wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = _(u"Time Logger"), pos = wx.DefaultPosition, size = wx.Size( 640,500 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
 
@@ -184,6 +192,8 @@ class TimeLogger ( wx.Frame ):
         self.Layout()
 
         self.Centre( wx.BOTH )
+        
+        self.billed_colour = wx.Colour(255, 182, 193)
             
         self.m_Timer = wx.Timer()
         self.m_Stopwatch = wx.StopWatch()
@@ -229,7 +239,10 @@ class TimeLogger ( wx.Frame ):
                 self.m_listCtrl.Append([entry.details, entry.time_start, entry.time_end, '{:d}:{:02d}:{:02d}'.format(h, m, s)])            
                 self.total_time_spent += self.get_time_spent(i)
             else:
-                self.m_listCtrl.Append([entry.details, entry.time_start, entry.time_end, "??:??:??"]) 
+                self.m_listCtrl.Append([entry.details, entry.time_start, entry.time_end, "??:??:??"])
+            if entry.billed:
+                self.m_listCtrl.SetItemBackgroundColour(self.m_listCtrl.GetItemCount()-1, self.billed_colour)
+            
         self.update_total_time()
     
     def format_time(self, seconds):
@@ -452,17 +465,25 @@ class TimeLogger ( wx.Frame ):
                            style=wx.FD_OPEN) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                     return
-            with open(fileDialog.GetPath(), "w") as file:
-                for row in range(self.m_listCtrl.GetItemCount()):
-                    start_time = self.m_listCtrl.GetItem(row, 1).GetText()
-                    if selection == wx.ID_NO and self.logs.get_billed_by_time(start_time)[0] == 1:
-                        continue
-                    desc = self.m_listCtrl.GetItem(row, 0).GetText()
-                    end_time = self.m_listCtrl.GetItem(row, 2).GetText()
-                    time_spent = self.m_listCtrl.GetItem(row, 3).GetText()
-                    file.write(f"{desc},{start_time},{end_time},{time_spent}\n")
-                    if bill == wx.ID_YES:
-                        self.logs.update_billed_by_time(start_time, 1)
+            try:
+                with open(fileDialog.GetPath(), "w") as file:
+                    exported = []
+                    for row in range(self.m_listCtrl.GetItemCount()):
+                        start_time = self.m_listCtrl.GetItem(row, 1).GetText()
+                        if selection == wx.ID_NO and self.logs.get_billed_by_time(start_time)[0] == 1:
+                            continue
+                        desc = self.m_listCtrl.GetItem(row, 0).GetText()
+                        end_time = self.m_listCtrl.GetItem(row, 2).GetText()
+                        time_spent = self.m_listCtrl.GetItem(row, 3).GetText()
+                        file.write(f"{desc},{start_time},{end_time},{time_spent}\n")
+                        exported.append((row, start_time))
+            except:
+                wx.MessageDialog(self, "Error Occured", "Export", wx.ICON_ERROR).ShowModal()
+                return
+            if bill == wx.ID_YES:
+                for row, time in exported:
+                    self.m_listCtrl.SetItemBackgroundColour(row, self.billed_colour)
+                    self.logs.update_billed_by_time(time, 1)
         wx.MessageDialog(self, "Export Completed", "Export", wx.OK).ShowModal()
     
         
