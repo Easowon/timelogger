@@ -6,9 +6,24 @@ import sqlite3
 from timelogger_model import *
 
 '''
-Start button does not disable after changing categories
-Make export error more specific
-Warn if exporting and there is a running task (dont export)
+Have a title screen, better name
+add to github
+
+Menu Bar:
+    File menu
+        New
+        Open
+        Export entire database
+        Exit
+    Help
+        About
+            Link to LinkedIn page
+    
+bugs
+Creating an entry before category is created
+
+features
+billed column in listctrl
 '''
 
 
@@ -25,9 +40,10 @@ class TimeLogger ( wx.Frame ):
         
         self.logs = LogBook("TimeLogger.db")
         #self.logs.purge_db()
-        
+    
         wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = _(u"Time Logger"), pos = wx.DefaultPosition, size = wx.Size( 640,500 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
-
+        self.Bind(wx.EVT_CLOSE, self.on_window_close)
+            
         self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
 
         OuterSizer = wx.BoxSizer( wx.VERTICAL )
@@ -193,7 +209,7 @@ class TimeLogger ( wx.Frame ):
 
         self.Centre( wx.BOTH )
         
-        self.billed_colour = wx.Colour(255, 182, 193)
+        self.billed_colour = wx.Colour(250, 218, 221)
             
         self.m_Timer = wx.Timer()
         self.m_Stopwatch = wx.StopWatch()
@@ -278,6 +294,7 @@ class TimeLogger ( wx.Frame ):
             return
     
         combobox_value = self.m_comboCategory.GetValue()
+        self.m_buttonStartLog.Disable()
         
         self.get_category_logs(combobox_value)
         self.current_category = self.m_comboCategory.GetSelection()
@@ -474,11 +491,14 @@ class TimeLogger ( wx.Frame ):
                             continue
                         desc = self.m_listCtrl.GetItem(row, 0).GetText()
                         end_time = self.m_listCtrl.GetItem(row, 2).GetText()
+                        if end_time == "":
+                            wx.MessageDialog(self, f"Skipping ongoing task.", "Export", wx.ICON_INFORMATION).ShowModal()
+                            continue
                         time_spent = self.m_listCtrl.GetItem(row, 3).GetText()
                         file.write(f"{desc},{start_time},{end_time},{time_spent}\n")
                         exported.append((row, start_time))
-            except:
-                wx.MessageDialog(self, "Error Occured", "Export", wx.ICON_ERROR).ShowModal()
+            except Exception as e:
+                wx.MessageDialog(self, f"Error Occured: {e}", "Export", wx.ICON_ERROR).ShowModal()
                 return
             if bill == wx.ID_YES:
                 for row, time in exported:
@@ -486,8 +506,13 @@ class TimeLogger ( wx.Frame ):
                     self.logs.update_billed_by_time(time, 1)
         wx.MessageDialog(self, "Export Completed", "Export", wx.OK).ShowModal()
     
+    def on_window_close(self, event):
+        if self.task_ongoing:
+            choice = wx.MessageDialog(self, "There is a task currently ongoing. Close Anyway?", "Task Ongoing", wx.YES_NO).ShowModal()
+            if choice == wx.ID_NO:
+                return
         
-        
+        self.Destroy()
 app = wx.App()
 tl = TimeLogger(None)
 tl.Show()

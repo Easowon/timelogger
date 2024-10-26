@@ -32,6 +32,34 @@ class AppState:
         return self.__id
         
 class LogBook:
+    create_cat_table_query = """CREATE TABLE IF NOT EXISTS categories (
+                                CatID   INTEGER   PRIMARY KEY AUTOINCREMENT
+                                        UNIQUE
+                                        NOT NULL,
+                                CatName TEXT (64) NOT NULL
+                                        UNIQUE
+                                );"""
+    create_log_table_query = """CREATE TABLE IF NOT EXISTS entries (
+                                EntryID   INTEGER     PRIMARY KEY AUTOINCREMENT
+                                          NOT NULL
+                                          UNIQUE,
+                                CatID     INTEGER     REFERENCES categories (CatID) ON DELETE RESTRICT
+                                                                                    ON UPDATE RESTRICT
+                                                                                    MATCH SIMPLE
+                                          NOT NULL,
+                                TimeStart TEXT        NOT NULL,
+                                TimeEnd   TEXT        DEFAULT (0),
+                                Details   TEXT (255),
+                                Billed    INTEGER (1) CHECK (Billed == 1 OR 
+                                                             Billed == 0) 
+                                          NOT NULL
+                                          DEFAULT (0) 
+                                );"""
+    create_app_table_query = """CREATE TABLE IF NOT EXISTS app_state (
+                                ID          INTEGER PRIMARY KEY
+                                            DEFAULT (1),
+                                LastEntryID INTEGER UNIQUE
+                                );"""
     add_cat_query = """INSERT INTO categories (CatName) VALUES
                                               ('{cat_name}');"""
     add_log_query = """INSERT INTO entries (CatID, TimeStart, TimeEnd, Details, Billed) VALUES
@@ -88,9 +116,15 @@ class LogBook:
         try:
             self.connector = sqlite3.connect(database)
             self.cursor = self.connector.cursor()
+            self.cursor.execute(LogBook.create_app_table_query)
+            self.cursor.execute(LogBook.create_cat_table_query)
+            self.cursor.execute(LogBook.create_log_table_query)
+            if len(self.cursor.execute("""SELECT * FROM app_state;""").fetchall()) < 1:
+                self.cursor.execute("""INSERT INTO app_state (ID, LastEntryID) VALUES (1, 0);""")
             self.cursor.execute("PRAGMA foreign_keys = ON")
-            self.AppState = AppState(self.cursor)
             
+            self.AppState = AppState(self.cursor)
+            self.connector.commit()
         except sqlite3.Error as e:
             print(f"An sqlite3 error occured: {type(e)}")
             raise(e)
