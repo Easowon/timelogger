@@ -1,12 +1,14 @@
 import wx
 import wx.xrc
+import wx.adv
 import time
 from functools import partial
 import sqlite3
 from timelogger_model import *
 
 '''
-Have a title screen, better name
+Have a title screen DONE
+better name
 add to github
 
 Menu Bar:
@@ -14,16 +16,19 @@ Menu Bar:
         New
         Open
         Export entire database
-        Exit
+            select directory -> categories.csv, entries.csv, app_state.csv
+        Quit DONE
     Help
         About
             Link to LinkedIn page
     
 bugs
-Creating an entry before category is created
+Creating an entry before category is created DONE
 
 features
 billed column in listctrl
+
+write db file to plaintext file
 '''
 
 
@@ -34,12 +39,42 @@ _ = gettext.gettext
 ## Class TimeLogger
 ###########################################################################
 
+class StartupScreen():
+    def __init__(self, parent):
+        aboutInfo = wx.adv.AboutDialogInfo()
+        aboutInfo.SetName(_("Time Logger"))
+        aboutInfo.SetVersion(_("1.0.0"))
+        aboutInfo.SetDescription(_("Manages and logs time spent"))
+        aboutInfo.AddDeveloper(_("Eason Chen"))
+        wx.adv.AboutBox(aboutInfo, parent)
+
 class TimeLogger ( wx.Frame ):
 
     def __init__( self, parent ):
         
-        self.logs = LogBook("TimeLogger.db")
+        
+        db_directory = "TimeLogger.db"
+        self.logs = LogBook(db_directory)
         #self.logs.purge_db()
+        
+        self.m_menuBar = wx.MenuBar()
+        fileMenu = wx.Menu()
+        newItem = wx.MenuItem(fileMenu,wx.ID_NEW, text = "&New",kind = wx.ITEM_NORMAL)
+        fileMenu.Append(newItem)
+        openItem = wx.MenuItem(fileMenu,wx.ID_OPEN, text = "&Open",kind = wx.ITEM_NORMAL)
+        fileMenu.Append(openItem)
+        exportItem = wx.MenuItem(fileMenu,wx.ID_SAVEAS, text = "E&xport Full",kind = wx.ITEM_NORMAL)
+        fileMenu.Append(exportItem)
+        quitItem = wx.MenuItem(fileMenu,wx.ID_EXIT, text = "&Quit",kind = wx.ITEM_NORMAL)
+        fileMenu.Append(quitItem)
+        helpMenu = wx.Menu()
+        aboutMenu = wx.Menu()
+        linkedInItem = wx.MenuItem(aboutMenu, wx.ID_ABOUT, text = "&LinkedIn", kind = wx.ITEM_NORMAL)
+        aboutMenu.Append(linkedInItem)
+        helpMenu.AppendSubMenu(aboutMenu, "&About")
+        
+        self.m_menuBar.Append(fileMenu, "&File")
+        self.m_menuBar.Append(helpMenu, "&Help")
     
         wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = _(u"Time Logger"), pos = wx.DefaultPosition, size = wx.Size( 640,500 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
         self.Bind(wx.EVT_CLOSE, self.on_window_close)
@@ -209,6 +244,9 @@ class TimeLogger ( wx.Frame ):
 
         self.Centre( wx.BOTH )
         
+        self.SetMenuBar(self.m_menuBar)
+        self.Bind(wx.EVT_MENU, self.menu_handler)
+
         self.billed_colour = wx.Colour(250, 218, 221)
             
         self.m_Timer = wx.Timer()
@@ -235,10 +273,26 @@ class TimeLogger ( wx.Frame ):
         
         if len(self.m_comboCategoryChoices) > 0:
             self.get_category_logs(self.m_comboCategory.GetValue())
-    
+        
     def __del__( self ):
         pass
     
+    def menu_handler(self, event):
+        event_id = event.GetId()
+        if event_id == wx.ID_NEW:
+            print("New")
+        if event_id == wx.ID_OPEN:
+            print("Open")
+        if event_id == wx.ID_SAVEAS:
+            print("Export full")
+        if event_id == wx.ID_EXIT:
+            self.on_window_close(0)
+        if event_id == wx.ID_ABOUT:
+            self.about_app()
+    
+    def about_app(self):
+        s = StartupScreen(self)
+
     def on_timer(self, event):
         self.m_ongoingTime += 1
         
@@ -379,6 +433,9 @@ class TimeLogger ( wx.Frame ):
         if self.task_ongoing:
             wx.MessageDialog(self, f"There is a task still running.", "Warning", wx.OK|wx.CENTRE|wx.ICON_WARNING).ShowModal()
             return
+        if len(self.m_comboCategoryChoices) < 1:
+            wx.MessageDialog(self, f"Not a valid category", "Warning", wx.OK|wx.CENTRE|wx.ICON_WARNING).ShowModal()
+            return
         start_time = time.asctime(time.localtime())
         self.m_listCtrl.Append([details, start_time, "", "??:??:??"])
 
@@ -516,4 +573,5 @@ class TimeLogger ( wx.Frame ):
 app = wx.App()
 tl = TimeLogger(None)
 tl.Show()
+tl.about_app()
 app.MainLoop()
