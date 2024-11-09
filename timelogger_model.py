@@ -129,6 +129,15 @@ class LogBook:
             print(f"An sqlite3 error occured: {type(e)}")
             raise(e)
         
+    def get_full_database(self):
+        cat_query = LogBook.get_cat_query
+        log_query = LogBook.get_log_query
+        app_query = "SELECT ID, LastEntryID FROM app_state;"
+        cats = self.cursor.execute(cat_query).fetchall()
+        logs = self.cursor.execute(log_query).fetchall()
+        app_state = self.cursor.execute(app_query).fetchall()
+        return cats, logs, app_state
+        
     def get_billed_by_time(self, log_time_start):
         query = LogBook.get_billed_by_time_query.format(log_time_start=log_time_start)
         return next(self.cursor.execute(query))

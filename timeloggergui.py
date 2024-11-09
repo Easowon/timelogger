@@ -13,22 +13,24 @@ add to github
 
 Menu Bar:
     File menu
-        New
-        Open
+        New DONE
+        Open DONE
         Export entire database
-            select directory -> categories.csv, entries.csv, app_state.csv
+            select directory -> categories.csv, entries.csv, app_state.csv DONE (not cross platform, see os.path.join)
         Quit DONE
     Help
         About
             Link to LinkedIn page
+            Startup page
     
 bugs
 Creating an entry before category is created DONE
+ ===================> reset app on open / new 
 
 features
-billed column in listctrl
+billed column in listctrl DONE
 
-write db file to plaintext file
+write db file to plaintext file DONE
 '''
 
 
@@ -51,9 +53,17 @@ class StartupScreen():
 class TimeLogger ( wx.Frame ):
 
     def __init__( self, parent ):
+        self.parent  = parent
+        try:
+            db_file = open("db_directory.txt", "x")
+            db_file = open("db_directory.txt", "w")
+            db_file.write("TimeLogger.db")
+        except:
+            pass
+        finally:
+            db_file = open("db_directory.txt")
         
-        
-        db_directory = "TimeLogger.db"
+        db_directory = db_file.readline().strip()
         self.logs = LogBook(db_directory)
         #self.logs.purge_db()
         
@@ -76,7 +86,7 @@ class TimeLogger ( wx.Frame ):
         self.m_menuBar.Append(fileMenu, "&File")
         self.m_menuBar.Append(helpMenu, "&Help")
     
-        wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = _(u"Time Logger"), pos = wx.DefaultPosition, size = wx.Size( 640,500 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+        wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = _(u"Time Logger"), pos = wx.DefaultPosition, size = wx.Size( 700,500 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
         self.Bind(wx.EVT_CLOSE, self.on_window_close)
             
         self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
@@ -156,6 +166,7 @@ class TimeLogger ( wx.Frame ):
         self.m_listCtrl.AppendColumn("Start", width=150)
         self.m_listCtrl.AppendColumn("End", width=150)
         self.m_listCtrl.AppendColumn("Spent", width=50)
+        self.m_listCtrl.AppendColumn("Billed", width=50)
         
         
         LogsButtonSizer = wx.BoxSizer( wx.HORIZONTAL )
@@ -271,25 +282,91 @@ class TimeLogger ( wx.Frame ):
         self.current_category = self.m_comboCategory.GetSelection()
         self.total_time_spent = 0
         
+        self.m_listCtrl.DeleteAllItems()
+        self.refresh_combobox_choices()
         if len(self.m_comboCategoryChoices) > 0:
             self.get_category_logs(self.m_comboCategory.GetValue())
         
     def __del__( self ):
         pass
     
+    def reset(self):
+        try:
+            db_file = open("db_directory.txt", "x")
+            db_file = open("db_directory.txt", "w")
+            db_file.write("TimeLogger.db")
+        except:
+            pass
+        finally:
+            db_file = open("db_directory.txt")
+        
+        db_directory = db_file.readline().strip()
+        self.logs = LogBook(db_directory)
+
+        self.m_ongoingTime = 0
+        
+        last_log = self.logs.get_log_by_id(self.logs.AppState.get_last_entry_id())
+        if last_log is None:
+            self.m_comboCategory.SetSelection(0)
+            self.task_ongoing = False
+        else:
+            last_cat = self.logs.get_cat_name_by_id(last_log.cat_id)
+            self.task_ongoing = last_log.time_end == ""
+            self.m_comboCategory.SetSelection(self.m_comboCategoryChoices.index(last_cat))
+            
+            if self.task_ongoing:
+                self.m_ongoingTime = int(time.time()) - time.mktime(time.strptime(last_log.time_start))
+                self.m_Timer.Start(self.m_TimeInterval)
+        
+        self.current_category = self.m_comboCategory.GetSelection()
+        self.total_time_spent = 0
+        
+        self.m_listCtrl.DeleteAllItems()
+        self.refresh_combobox_choices()
+        if len(self.m_comboCategoryChoices) > 0:
+            self.get_category_logs(self.m_comboCategory.GetValue())
+    
     def menu_handler(self, event):
         event_id = event.GetId()
         if event_id == wx.ID_NEW:
-            print("New")
+            self.new_db(0)
         if event_id == wx.ID_OPEN:
-            print("Open")
+            self.open_db(0)
         if event_id == wx.ID_SAVEAS:
-            print("Export full")
+            self.on_full_export(0)
         if event_id == wx.ID_EXIT:
             self.on_window_close(0)
         if event_id == wx.ID_ABOUT:
             self.about_app()
-    
+            
+    def new_db(self, event):
+        with wx.FileDialog(self, "Open db file", wildcard="db files (*.db)|*.db",
+                           style=wx.FD_OPEN) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                    return
+            try:
+                with open("db_directory.txt", "w") as file:
+                    new_path = fileDialog.GetPath()
+                    file.write(new_path)
+            except Exception as e:
+                wx.MessageDialog(self, f"Error Occured: {e}", "Open", wx.ICON_ERROR).ShowModal()
+                return
+        self.reset()
+        
+    def open_db(self, event):
+        with wx.FileDialog(self, "Open db file", wildcard="db files (*.db)|*.db",
+                           style=wx.FD_OPEN) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                    return
+            try:
+                with open("db_directory.txt", "w") as file:
+                    new_path = fileDialog.GetPath()
+                    file.write(new_path)
+            except Exception as e:
+                wx.MessageDialog(self, f"Error Occured: {e}", "Open", wx.ICON_ERROR).ShowModal()
+                return
+        self.reset()
+                
     def about_app(self):
         s = StartupScreen(self)
 
@@ -306,10 +383,10 @@ class TimeLogger ( wx.Frame ):
         for i, entry in enumerate(cat_logs):
             if entry.time_end != "":
                 h,m,s = self.format_time(self.str_time_to_epoch(entry.time_end) - self.str_time_to_epoch(entry.time_start))
-                self.m_listCtrl.Append([entry.details, entry.time_start, entry.time_end, '{:d}:{:02d}:{:02d}'.format(h, m, s)])            
+                self.m_listCtrl.Append([entry.details, entry.time_start, entry.time_end, '{:d}:{:02d}:{:02d}'.format(h, m, s), entry.billed])            
                 self.total_time_spent += self.get_time_spent(i)
             else:
-                self.m_listCtrl.Append([entry.details, entry.time_start, entry.time_end, "??:??:??"])
+                self.m_listCtrl.Append([entry.details, entry.time_start, entry.time_end, "??:??:??", entry.billed])
             if entry.billed:
                 self.m_listCtrl.SetItemBackgroundColour(self.m_listCtrl.GetItemCount()-1, self.billed_colour)
             
@@ -437,7 +514,7 @@ class TimeLogger ( wx.Frame ):
             wx.MessageDialog(self, f"Not a valid category", "Warning", wx.OK|wx.CENTRE|wx.ICON_WARNING).ShowModal()
             return
         start_time = time.asctime(time.localtime())
-        self.m_listCtrl.Append([details, start_time, "", "??:??:??"])
+        self.m_listCtrl.Append([details, start_time, "", "??:??:??", "0"])
 
         last_entry_id = self.logs.add_log(LogEntry(cat_id=self.logs.get_cat_id_by_name(self.m_comboCategory.GetValue()), \
                                    time_start=start_time, details=details))
@@ -562,7 +639,27 @@ class TimeLogger ( wx.Frame ):
                     self.m_listCtrl.SetItemBackgroundColour(row, self.billed_colour)
                     self.logs.update_billed_by_time(time, 1)
         wx.MessageDialog(self, "Export Completed", "Export", wx.OK).ShowModal()
-    
+        
+    def on_full_export(self, event):
+        cats, logs, app_state = self.logs.get_full_database()
+        with wx.DirDialog(self, "Open Folder", style=wx.FD_OPEN) as DirDialog:
+            if DirDialog.ShowModal() == wx.ID_CANCEL:
+                    return
+            try:
+                directory = DirDialog.GetPath()
+                with open(directory + "\\categories.csv", "w") as file:
+                    for c in cats:
+                        file.write(str(c)[1:-1])
+                with open(directory + "\\logs.csv", "w") as file:
+                    for l in logs:
+                        file.write(str(l)[1:-1])
+                with open(directory + "\\app_state.csv", "w") as file:
+                    for a in app_state:
+                        file.write(str(a)[1:-1])
+            except Exception as e:
+                wx.MessageDialog(self, f"Error Occured: {e}", "Open", wx.ICON_ERROR).ShowModal()
+                return
+        
     def on_window_close(self, event):
         if self.task_ongoing:
             choice = wx.MessageDialog(self, "There is a task currently ongoing. Close Anyway?", "Task Ongoing", wx.YES_NO).ShowModal()
