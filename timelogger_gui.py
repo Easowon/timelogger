@@ -4,38 +4,13 @@ import wx.adv
 import os
 import sqlite3
 import time
-<<<<<<< HEAD
 import webbrowser
-=======
->>>>>>> origin/master
 from functools import partial
 from timelogger_model import *
 
 '''
-Have a title screen DONE
+todo:
 better name
-add to github
-
-Menu Bar:
-    File menu
-        New DONE
-        Open DONE
-        Export entire database
-            select directory -> categories.csv, entries.csv, app_state.csv DONE (not cross platform, see os.path.join DONE) DONE
-        Quit DONE
-    Help
-        About
-            Link to LinkedIn page
-            Startup page
-    
-bugs
-Creating an entry before category is created DONE
- ===================> reset app on open / new DONE
-
-features
-billed column in listctrl DONE
-
-write db file to plaintext file DONE
 '''
 
 
@@ -53,10 +28,7 @@ class StartupScreen():
         aboutInfo.SetVersion(_("1.0.0"))
         aboutInfo.SetDescription(_("Manages and logs time spent"))
         aboutInfo.AddDeveloper(_("Eason Chen"))
-<<<<<<< HEAD
         aboutInfo.SetWebSite("https://github.com/Easowon/timelogger")
-=======
->>>>>>> origin/master
         wx.adv.AboutBox(aboutInfo, parent)
 
 class TimeLogger ( wx.Frame ):
@@ -88,15 +60,12 @@ class TimeLogger ( wx.Frame ):
         fileMenu.Append(quitItem)
         helpMenu = wx.Menu()
         aboutMenu = wx.Menu()
-<<<<<<< HEAD
         StartupPageItem = wx.MenuItem(aboutMenu, wx.ID_ABOUT, text = "&Startup Page", kind = wx.ITEM_NORMAL)
         LinkedInItem = wx.MenuItem(aboutMenu, wx.ID_INFO, text = "&LinkedIn", kind = wx.ITEM_NORMAL)
         aboutMenu.Append(StartupPageItem)
         aboutMenu.Append(LinkedInItem)
-=======
         linkedInItem = wx.MenuItem(aboutMenu, wx.ID_ABOUT, text = "&LinkedIn", kind = wx.ITEM_NORMAL)
         aboutMenu.Append(linkedInItem)
->>>>>>> origin/master
         helpMenu.AppendSubMenu(aboutMenu, "&About")
         
         self.m_menuBar.Append(fileMenu, "&File")
@@ -355,11 +324,8 @@ class TimeLogger ( wx.Frame ):
             self.on_window_close(0)
         if event_id == wx.ID_ABOUT:
             self.about_app()
-<<<<<<< HEAD
         if event_id == wx.ID_INFO:
             webbrowser.open('https://www.linkedin.com/in/eason-c/')
-=======
->>>>>>> origin/master
             
     def new_db(self, event):
         with wx.FileDialog(self, "Open db file", wildcard="db files (*.db)|*.db",
@@ -584,7 +550,6 @@ class TimeLogger ( wx.Frame ):
     def on_listctrl_del(self, event):
         """Deletes selected row"""
         row_idx = self.m_listCtrl.GetFocusedItem()
-<<<<<<< HEAD
         if row_idx == -1:
             row_idx = self.m_listCtrl.GetItemCount()-1
         row_time_start = self.m_listCtrl.GetItem(row_idx, 1).GetText()
@@ -600,7 +565,6 @@ class TimeLogger ( wx.Frame ):
         self.m_ongoingTime = 0
         self.m_Timer.Stop()
         self.m_valueCurrentTimeSpent.SetLabel("(+00:00:00)")
-=======
         row_time_start = self.m_listCtrl.GetItem(row_idx, 1).GetText()
         time_spent = self.get_time_spent(row_idx)
         print(time_spent)
@@ -609,8 +573,6 @@ class TimeLogger ( wx.Frame ):
         self.m_listCtrl.DeleteItem(row_idx)
         self.logs.del_log_by_time(row_time_start)
         #entry_id = self.logs.get_
->>>>>>> origin/master
-        
         
     def on_listctrl_stop(self, event):
         """Stops the current task"""
