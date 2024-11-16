@@ -181,12 +181,10 @@ class LogBook:
     
     def get_cat_name_by_id(self, cat_id):
         query = LogBook.get_cat_name_by_id_query.format(cat_id=cat_id)
-        
         return tuple(self.cursor.execute(query))[0][0]
     
     def get_cat_id_by_name(self, name):
         query = LogBook.get_cat_id_by_name_query.format(name=name)
-        
         return tuple(self.cursor.execute(query))[0][0]
         
     

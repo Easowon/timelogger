@@ -1,9 +1,10 @@
 import wx
 import wx.xrc
 import wx.adv
+import os
+import sqlite3
 import time
 from functools import partial
-import sqlite3
 from timelogger_model import *
 
 '''
@@ -16,7 +17,7 @@ Menu Bar:
         New DONE
         Open DONE
         Export entire database
-            select directory -> categories.csv, entries.csv, app_state.csv DONE (not cross platform, see os.path.join)
+            select directory -> categories.csv, entries.csv, app_state.csv DONE (not cross platform, see os.path.join DONE) DONE
         Quit DONE
     Help
         About
@@ -25,7 +26,7 @@ Menu Bar:
     
 bugs
 Creating an entry before category is created DONE
- ===================> reset app on open / new 
+ ===================> reset app on open / new DONE
 
 features
 billed column in listctrl DONE
@@ -302,6 +303,7 @@ class TimeLogger ( wx.Frame ):
         
         db_directory = db_file.readline().strip()
         self.logs = LogBook(db_directory)
+        self.m_comboCategoryChoices = self.logs.get_cat_names()
 
         self.m_ongoingTime = 0
         
@@ -647,13 +649,14 @@ class TimeLogger ( wx.Frame ):
                     return
             try:
                 directory = DirDialog.GetPath()
-                with open(directory + "\\categories.csv", "w") as file:
+                print(os.path.join(directory, "categories.csv"))
+                with open(os.path.join(directory, "categories.csv"), "w") as file:
                     for c in cats:
                         file.write(str(c)[1:-1])
-                with open(directory + "\\logs.csv", "w") as file:
+                with open(os.path.join(directory, "logs.csv"), "w") as file:
                     for l in logs:
                         file.write(str(l)[1:-1])
-                with open(directory + "\\app_state.csv", "w") as file:
+                with open(os.path.join(directory, "app_state.csv"), "w") as file:
                     for a in app_state:
                         file.write(str(a)[1:-1])
             except Exception as e:
