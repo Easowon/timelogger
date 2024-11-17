@@ -17,10 +17,6 @@ better name
 import gettext
 _ = gettext.gettext
 
-###########################################################################
-## Class TimeLogger
-###########################################################################
-
 class StartupScreen():
     def __init__(self, parent):
         aboutInfo = wx.adv.AboutDialogInfo()
@@ -442,6 +438,8 @@ class TimeLogger ( wx.Frame ):
         self.m_textCategory.SetValue("")
             
     def on_category_edit(self, event):
+        if len(self.m_comboCategoryChoices) == 0:
+            return
         combobox_value = self.m_comboCategory.GetValue()
         combobox_value_index = self.m_comboCategory.GetSelection()
         
@@ -478,6 +476,8 @@ class TimeLogger ( wx.Frame ):
         
     def on_category_del(self, event):
         """Deletes category & records"""
+        if len(self.m_comboCategoryChoices) == 0:
+            return
         category = self.m_comboCategory.GetValue()
         
         warning_msg = wx.MessageDialog(self, f"Delete category '{category}'?", "Warning", wx.OK|wx.CANCEL|wx.CENTRE|wx.ICON_WARNING)
@@ -488,11 +488,15 @@ class TimeLogger ( wx.Frame ):
                 self.m_comboCategoryChoices.remove(category)
             
                 self.refresh_combobox_choices()
+                self.m_listCtrl.DeleteAllItems()
                 
                 #self.get_category_logs(self.m_comboCategory.GetValue())
             except sqlite3.IntegrityError:
                 wx.MessageDialog(self, f"Cannot delete category '{category}' with logs.", \
                                  "Error", wx.OK|wx.CENTRE|wx.ICON_ERROR).ShowModal()
+        if len(self.m_comboCategoryChoices) > 0:
+            self.get_category_logs(category)
+            self.current_category = self.m_comboCategory.GetSelection()
                 
     def create_log(self, details):
         if self.task_ongoing:
@@ -515,13 +519,15 @@ class TimeLogger ( wx.Frame ):
     
     def on_listctrl_select(self, event):
         """Runs when a row is pressed"""
-        self.m_buttonStartLog.Enable()
+        self.m_buttonStartLog.Enable() 
     
     def on_listctrl_deselect(self, event):
         self.m_buttonStartLog.Disable()
         
     def on_listctrl_start(self, event):
         row_idx = self.m_listCtrl.GetFocusedItem()
+        if row_idx == -1 or row_idx >= self.m_listCtrl.GetItemCount():
+            row_idx = self.m_listCtrl.GetItemCount()-1
         row_desc = self.m_listCtrl.GetItem(row_idx, 0).GetText()
         self.create_log(row_desc)
         
@@ -539,6 +545,8 @@ class TimeLogger ( wx.Frame ):
     
     def on_listctrl_edit(self, event):
         """Enables row description editing"""
+        if self.m_listCtrl.GetItemCount() == 0:
+            return
         row_idx = self.m_listCtrl.GetFocusedItem()
         current_desc = self.m_listCtrl.GetItem(row_idx, 0)
         self.m_newDescription.SetValue(current_desc.GetText())
@@ -549,8 +557,10 @@ class TimeLogger ( wx.Frame ):
     
     def on_listctrl_del(self, event):
         """Deletes selected row"""
+        if self.m_listCtrl.GetItemCount() == 0:
+            return
         row_idx = self.m_listCtrl.GetFocusedItem()
-        if row_idx == -1:
+        if row_idx == -1 or row_idx >= self.m_listCtrl.GetItemCount():
             row_idx = self.m_listCtrl.GetItemCount()-1
         row_time_start = self.m_listCtrl.GetItem(row_idx, 1).GetText()
         row_time_end = self.m_listCtrl.GetItem(row_idx, 2).GetText()
@@ -558,8 +568,6 @@ class TimeLogger ( wx.Frame ):
             time_spent = self.get_time_spent(row_idx)
             print(time_spent)
             self.update_total_time(-time_spent)
-        self.m_listCtrl.DeleteItem(row_idx)
-        self.logs.del_log_by_time(row_time_start)
         
         self.task_ongoing = False
         self.m_ongoingTime = 0
@@ -569,13 +577,14 @@ class TimeLogger ( wx.Frame ):
         time_spent = self.get_time_spent(row_idx)
         print(time_spent)
         self.update_total_time(-time_spent)
-        #print(row_time_start)
         self.m_listCtrl.DeleteItem(row_idx)
         self.logs.del_log_by_time(row_time_start)
-        #entry_id = self.logs.get_
+
         
     def on_listctrl_stop(self, event):
         """Stops the current task"""
+        if self.m_listCtrl.GetItemCount() == 0:
+            return
         last_row_idx = self.m_listCtrl.GetItemCount() - 1
         if self.m_listCtrl.GetItemText(last_row_idx, 2) != "":
             wx.MessageDialog(self, f"No task currently running.", "Warning", wx.OK|wx.CENTRE|wx.ICON_WARNING).ShowModal()
@@ -606,11 +615,20 @@ class TimeLogger ( wx.Frame ):
         
         self.create_log(log_desc)
         
+            
     def on_export(self, event):
-        dlg = wx.MessageDialog(self, "What do you want to Export?", "Export", wx.YES_NO|wx.CANCEL)
-        dlg.SetYesNoLabels("Full", "Unbilled")
+        if self.m_listCtrl.GetItemCount() == 0:
+            return
+        index = self.m_listCtrl.GetFirstSelected()
+        selected = [index]
+        while index != -1:
+            index = self.m_listCtrl.GetNextSelected(index)
+            selected.append(index)
+        dlg = wx.MessageDialog(self, "What do you want to export?", "Export", wx.HELP|wx.YES_NO|wx.CANCEL)
+        dlg.SetYesNoCancelLabels("Full", "Unbilled", "Selected")
+        dlg.SetHelpLabel("Cancel")
         selection = dlg.ShowModal()
-        if selection == wx.ID_CANCEL:
+        if selection == wx.ID_HELP:
             return
         dlg = wx.MessageDialog(self, "Mark rows as billed?", "Bill", wx.YES_NO)
         bill = dlg.ShowModal()
@@ -622,6 +640,8 @@ class TimeLogger ( wx.Frame ):
                 with open(fileDialog.GetPath(), "w") as file:
                     exported = []
                     for row in range(self.m_listCtrl.GetItemCount()):
+                        if selection == wx.ID_CANCEL and row not in selected:
+                            continue
                         start_time = self.m_listCtrl.GetItem(row, 1).GetText()
                         if selection == wx.ID_NO and self.logs.get_billed_by_time(start_time)[0] == 1:
                             continue
@@ -641,6 +661,8 @@ class TimeLogger ( wx.Frame ):
                     self.m_listCtrl.SetItemBackgroundColour(row, self.billed_colour)
                     self.logs.update_billed_by_time(time, 1)
         wx.MessageDialog(self, "Export Completed", "Export", wx.OK).ShowModal()
+        self.get_category_logs(self.m_comboCategory.GetValue())
+        
         
     def on_full_export(self, event):
         cats, logs, app_state = self.logs.get_full_database()
