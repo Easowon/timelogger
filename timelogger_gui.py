@@ -1,3 +1,5 @@
+# Copyright (c) 2024 Eason Chen. Licensed under the MIT Licence.
+
 import wx
 import wx.xrc
 import wx.adv
