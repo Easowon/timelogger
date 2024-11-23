@@ -1,3 +1,5 @@
+# Copyright (c) 2024 Eason Chen. Licensed under the MIT Licence.
+
 import sqlite3
 
 class Category:
